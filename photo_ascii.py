@@ -6,13 +6,15 @@ final se disuelve. El fondo blanco de la foto se reemplaza por estrellas.
 
 Uso:
     pip install numpy pygame
-    python photo_ascii.py mi_foto.jpg
+    python photo_ascii.py              (abre una ventana para elegir la foto)
+    python photo_ascii.py mi_foto.jpg  (usa esa foto directamente)
 
 Teclas: ESPACIO pausa, R reinicia, ESC sale.
 """
 
 import argparse
 import os
+import sys
 
 import numpy as np
 import pygame
@@ -187,14 +189,41 @@ def rasterize(glyphs, idx, color):
     return (cover[..., None] * tint).astype(np.uint8)
 
 
+def choose_photo():
+    """Abre el selector de archivos del sistema para elegir la foto."""
+    try:
+        import tkinter
+        from tkinter import filedialog
+    except ImportError:
+        return None
+    root = tkinter.Tk()
+    root.withdraw()
+    path = filedialog.askopenfilename(
+        title="Elige una foto",
+        filetypes=[("Imágenes", "*.jpg *.jpeg *.png *.webp *.bmp"), ("Todos", "*.*")],
+    )
+    root.destroy()
+    return path
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("image", help="ruta de la foto (jpg, png, webp...)")
+    parser.add_argument("image", nargs="?",
+                        help="ruta de la foto (jpg, png, webp...); si no se "
+                             "indica, se abre una ventana para elegirla")
     parser.add_argument("--cols", type=int, default=150,
                         help="cantidad de columnas de caracteres (por defecto 150)")
     parser.add_argument("--save-frames", metavar="DIR",
                         help="guarda una vuelta completa como PNGs y sale")
     args = parser.parse_args()
+
+    image = args.image or choose_photo()
+    if not image:
+        sys.exit("No se eligió ninguna foto.")
+    if not os.path.isfile(image):
+        sys.exit(f"No encuentro el archivo: {image}\n"
+                 "Revisa el nombre, o ejecuta 'python photo_ascii.py' sin nada "
+                 "más para elegir la foto desde una ventana.")
 
     if args.save_frames:
         os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
@@ -208,7 +237,7 @@ def main():
     if not args.save_frames:
         screen = pygame.display.set_mode(size, pygame.SCALED | pygame.RESIZABLE)
         pygame.display.set_caption("Foto → ASCII")
-    scene = PhotoScene(*load_photo(args.image, cols, rows), cols, rows)
+    scene = PhotoScene(*load_photo(image, cols, rows), cols, rows)
 
     if args.save_frames:
         os.makedirs(args.save_frames, exist_ok=True)
